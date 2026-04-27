@@ -16,6 +16,13 @@ A full-stack web application for tracking movies and writing reviews. Users can 
 **Frontend** — React 19 · Vite · TypeScript · Tailwind CSS v4 · Zustand · `openapi-fetch`  
 **Infrastructure** — Docker Compose
 
+A few choices worth noting:
+
+- **NestJS** imposes a module/guard/interceptor structure that naturally enforces separation of concerns — controllers stay thin, business logic stays in services, and cross-cutting behaviour (auth, error shaping, response envelopes) lives in one place.
+- **TypeORM** fits the NestJS dependency-injection model well; the repository pattern is explicit about data access, and TypeScript decorators keep entity definitions close to the schema.
+- **Stateless JWT** keeps the auth layer simple — no session store, no Redis, horizontally scalable by default. `@nestjs/passport` with `passport-jwt` plugs into NestJS guards cleanly without ceremony.
+- **`openapi-fetch`** generates a fully typed HTTP client from the backend's Swagger spec, so the frontend never manually defines API types and drift is caught at compile time.
+
 ---
 
 ## Getting started
@@ -125,6 +132,8 @@ Review          (id, userId, movieId, rating, comment, createdAt, updatedAt)
                   rating: 1..5
                   UNIQUE(userId, movieId)
 ```
+
+`WatchlistEntry` is not a pure join table — it carries the `status` column, so no separate table is needed. The `UNIQUE(userId, movieId)` constraints on both `WatchlistEntry` and `Review` are enforced at the database level (not just the application layer) and double as indexes for the most common lookup pattern (find this user's entry for this movie). Foreign keys on `userId` use `ON DELETE CASCADE` so removing a user cleans up their data without a manual sweep. Profile statistics are computed live from the database rather than stored as denormalized counters, which keeps write paths simple and avoids sync bugs.
 
 ## Business rules
 
