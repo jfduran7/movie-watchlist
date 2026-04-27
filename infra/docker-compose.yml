@@ -1,0 +1,59 @@
+name: movie-watchlist
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: movie-watchlist-db
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - movie-watchlist
+
+  backend:
+    build:
+      context: ../backend
+    container_name: movie-watchlist-backend
+    ports:
+      - '3000:3000'
+    env_file: ../backend/.env
+    environment:
+      DB_HOST: postgres
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - movie-watchlist
+
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+    container_name: movie-watchlist-frontend
+    ports:
+      - '3001:4173'
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - movie-watchlist
+
+volumes:
+  pgdata:
+
+networks:
+  movie-watchlist:
+    driver: bridge
